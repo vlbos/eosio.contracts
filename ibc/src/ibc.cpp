@@ -50,16 +50,29 @@ namespace eosio {
 
    }
 
-   void ibctrxinfo(  uint64_t    transfer_seq,
-                     uint32_t    block_num,
-                     capi_checksum256  trx_id,
-                     name        from,
-                     asset       quantity,
-                     string      memo ){
-      print(transfer_seq);
-      print(block_num);
-      print(from.to_string());
+   void ibc::ibctrxinfo(   uint64_t    transfer_seq,
+                           uint32_t    block_time_slot,
+                           capi_checksum256  trx_id,
+                           name        from,
+                           asset       quantity,
+                           string      memo ){
+      print(transfer_seq);print("===");
+      print(block_time_slot);print("===");
+      print(from.to_string());print("===");
+      printhex(trx_id.hash,32);print("===");
    }
+
+   remoteibctrx( const uint32_t block_num,
+                 const std::vector<char>& packed_trx,
+                 const std::vector<capi_checksum256>& merkle_path){
+
+
+
+
+
+   }
+
+
 
 
 
@@ -197,4 +210,4 @@ namespace eosio {
 
 } /// namespace eosio
 
-EOSIO_DISPATCH( eosio::ibc, (initchain)(addheaders)(ps)(header)(merkle)(merkleadd) )
+EOSIO_DISPATCH( eosio::ibc, (initchain)(ibctrxinfo)(remoteibctrx)(addheaders)(ps)(header)(merkle)(merkleadd) )

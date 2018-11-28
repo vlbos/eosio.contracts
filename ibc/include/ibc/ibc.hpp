@@ -37,13 +37,16 @@ namespace eosio {
 
          [[eosio::action]]
          void ibctrxinfo(  uint64_t    transfer_seq,
-                           uint32_t    block_num,
+                           uint32_t    block_time_slot,
                            capi_checksum256  trx_id,
                            name        from,
                            asset       quantity,
                            string      memo );
 
-
+         [[eosio::action]]
+         remoteibctrx( const uint32_t block_num,
+                       const std::vector<char>& packed_trx,
+                       const std::vector<capi_checksum256>& merkle_path);
 
 
 

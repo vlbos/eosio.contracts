@@ -8,6 +8,7 @@
 #include <eosiolib/transaction.hpp>
 #include <ibc.token/ibc.token.hpp>
 
+#include "utils.cpp"
 #include "token.cpp"
 
 namespace eosio {
@@ -18,21 +19,7 @@ namespace eosio {
 
    }
 
-   struct transfer_args{
-      name    from;
-      name    to;
-      asset   quantity;
-      string  memo;
-   };
 
-   void trim(string &s)
-   {
-      if( !s.empty() )
-      {
-         s.erase(0,s.find_first_not_of(" "));
-         s.erase(s.find_last_not_of(" ") + 1);
-      }
-   }
 
 
    void token::regtoken( name contract, symbol sym, uint64_t min_quantity){
@@ -63,7 +50,7 @@ namespace eosio {
     */
    struct ibctrxinfo{
       uint64_t             transfer_seq;  //递增
-      uint32_t             block_num;
+      uint32_t             block_time_slot;
       capi_checksum256     trx_id;
       name                 from;
       asset                quantity;
@@ -72,20 +59,17 @@ namespace eosio {
 
 
    void token::transfer_notify( name from_token_contract, name from, name to, asset quantity, string memo ) {
-      capi_checksum256 trx_id;
-      std::vector<char> trx_bytes;
-      trx_bytes.resize(transaction_size());
-      read_transaction(trx_bytes.data(), transaction_size());
+      capi_checksum256 trx_id = get_trx_id();
 
-
-      ibctrxinfo info{1, 2, capi_checksum256(), "abc"_n, asset{100, symbol{"EOSS", 4}}, "memomomo"};
+      ibctrxinfo info{1, get_block_time_slot(), trx_id, "abcabcaaaa"_n, asset{100, symbol{"EOS", 4}}, "111111"};
       action(permission_level{_self, "active"_n}, "eos222333ibc"_n, "ibctrxinfo"_n, info).send();
    }
+
 
 //      printhex(trx_bytes.data(),trx_bytes.size());
 //      print("====");
 //      return;
-//
+//printhex(trx_id.hash,32);
 //
 //      if (to != _self) { return; }
 //
