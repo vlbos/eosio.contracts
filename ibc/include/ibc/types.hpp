@@ -51,7 +51,8 @@ struct transaction_receipt : public transaction_receipt_header {
    packed_transaction trx;
 
    digest_type digest()const {
-      datastream<char*> ds( result.data(), result.size() );
+      std::vector<char> result;
+      datastream<char*> ds();
       ds << status;
       ds << cpu_usage_us;
       ds << net_usage_words;
@@ -62,12 +63,9 @@ struct transaction_receipt : public transaction_receipt_header {
       sha256( trx_bytes.data(), trx_size, &digest );
       return digest;
 
+         datastream<char*> ds();
+         ds << status << cpu_usage_us << net_usage_words << trx.packed_digest();
 
-
-      pack( enc, status );
-      pack( enc, cpu_usage_us );
-      pack( enc, net_usage_words );
-      pack( enc, trx.packed_digest() );
       return enc.result();
    }
 };
