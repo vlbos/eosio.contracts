@@ -62,17 +62,32 @@ namespace eosio {
       printhex(trx_id.hash,32);print("===");
    }
 
-   remoteibctrx( const uint32_t block_num,
+   void ibc::remoteibctrx( const uint32_t block_num,
                  const std::vector<char>& packed_trx,
                  const std::vector<capi_checksum256>& merkle_path){
 
 
-
-
-
    }
+//   const std::vector<char>& trx_receipt_header_data,
+   void ibc::packedtrx( const std::vector<char>& packed_trx_data){
+//      const transaction_receipt_header trx_receipt_header = unpack<transaction_receipt_header>( trx_receipt_header_data );
+      const packed_transaction packed_trx = unpack<packed_transaction>( packed_trx_data );
+
+      auto dg = packed_trx.packed_digest();
+
+      printhex(dg.hash,32);
 
 
+//      datastream<size_t> ps;
+//      ps << trx_receipt_header.status << trx_receipt_header.cpu_usage_us << trx_receipt_header.net_usage_words;
+//
+//
+//      const transaction trx = unpack<transaction>(packed_trx.packed_trx);
+//
+//      print(int(trxraw.ref_block_num));
+
+      print("-2-");
+   }
 
 
 
@@ -210,4 +225,4 @@ namespace eosio {
 
 } /// namespace eosio
 
-EOSIO_DISPATCH( eosio::ibc, (initchain)(ibctrxinfo)(remoteibctrx)(addheaders)(ps)(header)(merkle)(merkleadd) )
+EOSIO_DISPATCH( eosio::ibc, (packedtrx)(initchain)(ibctrxinfo)(remoteibctrx)(addheaders)(ps)(header)(merkle)(merkleadd) )

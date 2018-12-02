@@ -44,7 +44,7 @@ namespace eosio {
                            string      memo );
 
          [[eosio::action]]
-         remoteibctrx( const uint32_t block_num,
+         void remoteibctrx( const uint32_t block_num,
                        const std::vector<char>& packed_trx,
                        const std::vector<capi_checksum256>& merkle_path);
 
@@ -56,7 +56,13 @@ namespace eosio {
 
 
          // for test
-         [[eosio::action]]
+//         const std::vector<char>& trx_receipt_header_data,
+
+      [[eosio::action]]
+      void packedtrx( const std::vector<char>& packed_trx_data);
+
+
+      [[eosio::action]]
          void header( const std::vector<char>& init_block_header);
 
          [[eosio::action]]
