@@ -4,6 +4,7 @@
  */
 #include <ibc/chain.hpp>
 #include <ibc/ibc.hpp>
+#include <ibc/types.hpp>
 #include "merkle.cpp"
 #include "chain.cpp"
 
@@ -71,7 +72,15 @@ namespace eosio {
 
    void ibc::packedtrx(const std::vector<char>& trx_receipt_header_data, const std::vector<char>& packed_trx_data){
       const transaction_receipt_header trx_receipt_header = unpack<transaction_receipt_header>( trx_receipt_header_data );
-//      const packed_transaction packed_trx = unpack<packed_transaction>( packed_trx_data );
+      const packed_transaction packed_trx = unpack<packed_transaction>( packed_trx_data );
+
+      transaction_receipt trx_rcpt{trx_receipt_header};
+      trx_rcpt.trx = packed_trx;
+
+      digest_type dg = trx_rcpt.digest();
+
+      printhex(dg.hash,32);
+
 
 //      auto dg = packed_trx.packed_digest();
 

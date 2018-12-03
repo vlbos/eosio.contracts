@@ -6,7 +6,6 @@
 
 #include <eosiolib/transaction.hpp>
 #include <eosiolib/varint.hpp>
-#include <any>
 
 namespace eosio {
 
@@ -76,61 +75,16 @@ namespace eosio {
 
       status_enum    status;
       uint32_t       cpu_usage_us;
-      uint8_t        net_usage_words;
+      unsigned_int   net_usage_words;
+
+      EOSLIB_SERIALIZE( transaction_receipt_header, (status)(cpu_usage_us)(net_usage_words))
    };
 
-//
-//   struct transaction_receipt : public transaction_receipt_header {
-//
-//
-//      packed_transaction trx;
-//
-//
-//      digest_type digest() const {
-//         datastream<size_t> ps;
-//         ps << status << cpu_usage_us << net_usage_words << std::get<packed_transaction>(trx).packed_digest();
-//         size_t size = ps.tellp();
-//
-//         std::vector<char> result;
-//         result.resize(size);
-//         datastream<char *> ds(result.data(),result.size());
-//         ds << status;
-//         ds << cpu_usage_us;
-//         ds << net_usage_words;
-//         ds << std::get<packed_transaction>(trx).packed_digest();
-//
-//         capi_checksum256 digest;
-//
-//         sha256(result.data(), result.size(), &digest);
-//         return digest;
-//      }
-//   };
-
-
+   struct transaction_receipt : public transaction_receipt_header {
+      packed_transaction trx;
+      digest_type digest() const {
+         return get_checksum256(status, cpu_usage_us, net_usage_words, trx.packed_digest());
+      }
+   };
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
