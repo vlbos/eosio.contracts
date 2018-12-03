@@ -56,10 +56,10 @@ namespace eosio {
 
 
          // for test
-//         const std::vector<char>& trx_receipt_header_data,
+
 
       [[eosio::action]]
-      void packedtrx( const std::vector<char>& packed_trx_data);
+      void packedtrx( const std::vector<char>& trx_receipt_header_data, const std::vector<char>& packed_trx_data);
 
 
       [[eosio::action]]

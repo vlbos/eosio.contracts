@@ -68,14 +68,14 @@ namespace eosio {
 
 
    }
-//   const std::vector<char>& trx_receipt_header_data,
-   void ibc::packedtrx( const std::vector<char>& packed_trx_data){
-//      const transaction_receipt_header trx_receipt_header = unpack<transaction_receipt_header>( trx_receipt_header_data );
-      const packed_transaction packed_trx = unpack<packed_transaction>( packed_trx_data );
 
-      auto dg = packed_trx.packed_digest();
+   void ibc::packedtrx(const std::vector<char>& trx_receipt_header_data, const std::vector<char>& packed_trx_data){
+      const transaction_receipt_header trx_receipt_header = unpack<transaction_receipt_header>( trx_receipt_header_data );
+//      const packed_transaction packed_trx = unpack<packed_transaction>( packed_trx_data );
 
-      printhex(dg.hash,32);
+//      auto dg = packed_trx.packed_digest();
+
+//      printhex(dg.hash,32);
 
 
 //      datastream<size_t> ps;

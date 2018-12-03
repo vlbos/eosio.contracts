@@ -5,6 +5,7 @@
 #pragma once
 
 #include <eosiolib/transaction.hpp>
+#include <eosiolib/varint.hpp>
 #include <any>
 
 namespace eosio {
@@ -49,47 +50,10 @@ namespace eosio {
       std::vector<char>             packed_context_free_data;
       std::vector<char>             packed_trx;
 
-      digest_type packed_digest() const{
+      digest_type packed_digest() const {
          auto digest = get_checksum256( signatures, packed_context_free_data );
          return get_checksum256( compression, packed_trx, digest );
       }
-
-
-
-//      digest_type packed_digest() const{
-//         capi_checksum256 digest1, digest2;
-//
-//         {
-//            datastream <size_t> ps;
-//            ps << signatures << packed_context_free_data;
-//            size_t size = ps.tellp();
-//
-//            std::vector<char> result;
-//            result.resize(size);
-//
-//            datastream<char *> ds(result.data(), result.size());
-//            ds << signatures << packed_context_free_data;
-//
-//            sha256(result.data(), result.size(), &digest1);
-//         }
-//
-//         {
-//            datastream <size_t> ps;
-//            ps << compression << packed_trx << digest1;
-//            size_t size = ps.tellp();
-//
-//            std::vector<char> result;
-//            result.resize(size);
-//
-//            datastream<char *> ds(result.data(), result.size());
-//            ds << compression << packed_trx << digest1;
-//
-//            sha256(result.data(), result.size(), &digest2);
-//         }
-//
-//         return digest2;
-//      }
-
 
 //   time_point_sec     expiration()const;
 //   transaction_id_type id()const;
@@ -98,10 +62,6 @@ namespace eosio {
 //   vector<bytes>      get_context_free_data()const;
 //   transaction        get_transaction()const;
 //   signed_transaction get_signed_transaction()const;
-
-//   private:
-//      mutable std::optional <transaction> unpacked_trx; // <-- intermediate buffer used to retrieve values
-//      void local_unpack() const;
    };
 
 
@@ -114,9 +74,9 @@ namespace eosio {
          expired = 4        ///< transaction expired and storage space refuned to user
       };
 
-      status_enum status;
-      uint32_t    cpu_usage_us;
-      uint32_t    net_usage_words;
+      status_enum    status;
+      uint32_t       cpu_usage_us;
+      uint8_t        net_usage_words;
    };
 
 //
