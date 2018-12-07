@@ -16,23 +16,45 @@ namespace eosio {
 
    class [[eosio::contract("ibc")]] ibc : public contract {
       private:
-         producer_schedule_singleton   _producer_schedule;
-         producer_schedule_type        _producer_schedule_state;
-         incremental_merkle_singleton  _incremental_merkle;
-         incremental_merkle            _incremental_merkle_state;
-         block_header_table            _block_header_table;
+         prodsches      _prodsches;
+         chaindb        _chaindb;
+         forkdb         _forkdb;
 
       public:
          ibc( name s, name code, datastream<const char*> ds );
          ~ibc();
 
          [[eosio::action]]
+         void forkdbinit(const std::vector<char>& init_block_header,
+                      const producer_schedule& init_active_schedule,
+                      const incremental_merkle& init_blockroot_merkle );
+
+         [[eosio::action]]
+         void addheaders( const std::vector<char>& headers);
+
+
+         // ---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+         [[eosio::action]]
          void initchain( const std::vector<char>& init_block_header,
                          const producer_schedule_type& init_producer_schedule,
                          const incremental_merkle& init_incr_merkle );
 
-         [[eosio::action]]
-         void addheaders( const std::vector<char>& headers);
+
 
 
          [[eosio::action]]
@@ -47,6 +69,10 @@ namespace eosio {
          void remoteibctrx( const uint32_t block_num,
                        const std::vector<char>& packed_trx,
                        const std::vector<capi_checksum256>& merkle_path);
+
+
+
+
 
 
 

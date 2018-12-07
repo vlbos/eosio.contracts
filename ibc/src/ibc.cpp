@@ -11,18 +11,74 @@
 namespace eosio {
 
    ibc::ibc( name s, name code, datastream<const char*> ds ) :contract(s,code,ds),
-       _producer_schedule(_self, _self.value),
-       _incremental_merkle(_self, _self.value),
-       _block_header_table(_self, _self.value)
+            _prodsches(_self, _self.value),
+            _chaindb(_self, _self.value),
+            _forkdb(_self, _self.value)
    {
-      _producer_schedule_state = _producer_schedule.exists() ? _producer_schedule.get() : producer_schedule_type{};
-      _incremental_merkle_state = _incremental_merkle.exists() ? _incremental_merkle.get() : incremental_merkle{};
+
    }
 
    ibc::~ibc() {
-      _producer_schedule.set( _producer_schedule_state, _self );
-      _incremental_merkle.set( _incremental_merkle_state, _self );
+
    }
+
+   void ibc::forkdbinit( const std::vector<char>& init_block_header,
+                        const producer_schedule& init_active_schedule,
+                        const incremental_merkle& init_blockroot_merkle ){
+
+      const signed_block_header header = unpack<signed_block_header>(init_block_header);
+
+      auto schedule_id = _prodsches.available_primary_key();
+      auto schedule_hash = get_checksum256(init_active_schedule);
+
+      _prodsches.emplace( _self, [&]( auto& r ) {
+         r.id              = schedule_id;
+         r.schedule        = init_active_schedule;
+         r.schedule_hash   = schedule_hash;
+      });
+
+      _forkdb.emplace( _self, [&]( auto& r ) {
+         r.block_num = header.block_num();
+         r.block_id  = header.id();
+         r.header    = header;
+         r.blockroot_merkle = init_blockroot_merkle;
+//         r.pending_schedule_id = ;
+         r.active_schedule_id = schedule_id;
+//         r.confirm_count = ;
+      });
+
+
+   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
    void ibc::initchain( const std::vector<char>& init_block_header,
                         const producer_schedule_type& init_producer_schedule,
@@ -30,19 +86,19 @@ namespace eosio {
 
       const signed_block_header header = unpack<signed_block_header>(init_block_header);
 
-      auto existing = _block_header_table.find( header.block_num() );
-
-      if( existing == _block_header_table.end() ){
-         _block_header_table.emplace( _self, [&]( auto& r ) {
-            r.block_num = header.block_num();
-            r.block_id  = header.id();
-            r.header    = header;
-            r.producer_signature = header.producer_signature;
-         });
-      }
-
-      _producer_schedule_state = init_producer_schedule;
-      _incremental_merkle_state = init_incr_merkle;
+//      auto existing = _block_header_table.find( header.block_num() );
+//
+//      if( existing == _block_header_table.end() ){
+//         _block_header_table.emplace( _self, [&]( auto& r ) {
+//            r.block_num = header.block_num();
+//            r.block_id  = header.id();
+//            r.header    = header;
+//            r.producer_signature = header.producer_signature;
+//         });
+//      }
+//
+//      _producer_schedule_state = init_producer_schedule;
+//      _incremental_merkle_state = init_incr_merkle;
    }
 
    void ibc::addheaders( const std::vector<char>& block_headers){
@@ -210,28 +266,28 @@ namespace eosio {
 
       print("0000aa");
 
-      _producer_schedule_state = params;
-      _producer_schedule.set( _producer_schedule_state, _self );
-      print(_producer_schedule_state.version);
+//      _producer_schedule_state = params;
+//      _producer_schedule.set( _producer_schedule_state, _self );
+//      print(_producer_schedule_state.version);
    }
 
    void ibc::merkle( const incremental_merkle& params){
       print(params.node_count);
       print("---------------++++-------+++++++++++++++++++./");
-      _incremental_merkle_state = params;
+//      _incremental_merkle_state = params;
    }
 
    void ibc::merkleadd( const digest_type& params){
 
-      print("input=");
-      printhex(&params.hash,32);
-
-      _incremental_merkle_state.append(params);
-      print("  root = ");
-      capi_checksum256 root = _incremental_merkle_state.get_root();
-      printhex(&(root.hash),32);
+//      print("input=");
+//      printhex(&params.hash,32);
+//
+//      _incremental_merkle_state.append(params);
+//      print("  root = ");
+//      capi_checksum256 root = _incremental_merkle_state.get_root();
+//      printhex(&(root.hash),32);
    }
 
 } /// namespace eosio
 
-EOSIO_DISPATCH( eosio::ibc, (packedtrx)(initchain)(ibctrxinfo)(remoteibctrx)(addheaders)(ps)(header)(merkle)(merkleadd) )
+EOSIO_DISPATCH( eosio::ibc, (packedtrx)(forkdbinit)(initchain)(ibctrxinfo)(remoteibctrx)(addheaders)(ps)(header)(merkle)(merkleadd) )

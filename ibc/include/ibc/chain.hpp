@@ -9,6 +9,7 @@
 #include <eosiolib/producer_schedule.hpp>
 #include <eosiolib/transaction.hpp>
 #include <eosiolib/singleton.hpp>
+#include "merkle.hpp"
 
 #include <string>
 
@@ -43,30 +44,47 @@ namespace eosio {
       EOSLIB_SERIALIZE_DERIVED( signed_block_header, block_header, (producer_signature) )
    };
 
-   struct [[eosio::table("blockheaders"), eosio::contract("ibc")]] block_headers /*: public block_header*/ {
-      uint64_t             block_num;
-      capi_checksum256     block_id;
-      block_header         header;
-      capi_signature       producer_signature;
+
+   // ---- forkdb ----
+   struct [[eosio::table("forkdb"), eosio::contract("ibc")]] block_header_stat {
+      uint64_t                   block_num;
+      block_id_type              block_id;
+      signed_block_header        header;
+      incremental_merkle         blockroot_merkle;
+      uint32_t                   pending_schedule_id;
+      uint32_t                   active_schedule_id;
+      std::vector<uint8_t>       confirm_count;
 
       uint64_t primary_key()const { return block_num; }
    };
+   typedef eosio::multi_index< "forkdb"_n, block_header_stat >  forkdb;
 
-   typedef eosio::multi_index< "blockheaders"_n, block_headers >  block_header_table;
+   struct [[eosio::table("prodsches"), eosio::contract("ibc")]] producer_schedule_type {
+      uint64_t                      id;
+      producer_schedule             schedule;
+      digest_type                   schedule_hash;
 
-   struct [[eosio::table("producers"), eosio::contract("ibc")]] producer_schedule_type {
-      uint32_t                      version;
-      std::vector<producer_key>     producers;
-
+      uint64_t primary_key()const { return id; }
       public_key get_producer_key( name p )const {
-         for( const auto& i : producers )
+         for( const auto& i : schedule.producers )
             if( i.producer_name == p )
                return i.block_signing_key;
          return public_key();
       }
    };
-   typedef eosio::singleton< "producers"_n, producer_schedule_type >  producer_schedule_singleton;
+   typedef eosio::multi_index< "prodsches"_n, producer_schedule_type >  prodsches;
 
+
+
+   struct [[eosio::table("chaindb"), eosio::contract("ibc")]] block_header_type {
+      uint64_t             block_num;
+      block_id_type        block_id;
+      block_header         header;
+      signature_type       producer_signature;
+
+      uint64_t primary_key()const { return block_num; }
+   };
+   typedef eosio::multi_index< "chaindb"_n, block_header_type >  chaindb;
 
 
 } /// namespace eosio

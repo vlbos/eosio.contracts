@@ -151,7 +151,7 @@ namespace eosio {
       std::vector<digest_type>   active_nodes;
    };
 
-   typedef eosio::singleton< "incrmerkle"_n, incremental_merkle >  incremental_merkle_singleton;
+
 
 } /// eosio
 
