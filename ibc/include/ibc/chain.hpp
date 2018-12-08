@@ -46,18 +46,20 @@ namespace eosio {
 
 
       // ---- tables ----
-   struct [[eosio::table("chaindb"), eosio::contract("ibc")]] block_header_type {
+   struct [[eosio::table("chaindb"), eosio::contract("ibc")]] block_header_state {
       uint64_t                   block_num;
       block_id_type              block_id;
       signed_block_header        header;
       uint32_t                   active_schedule_id;
       uint32_t                   pending_schedule_id;
       incremental_merkle         blockroot_merkle;
+      capi_public_key            block_signing_key;
       std::vector<uint8_t>       confirm_count;
 
       uint64_t primary_key()const { return block_num; }
+      digest_type    sig_digest()const;
    };
-   typedef eosio::multi_index< "chaindb"_n, block_header_type >  chaindb;
+   typedef eosio::multi_index< "chaindb"_n, block_header_state >  chaindb;
 
 
    struct [[eosio::table("prodsches"), eosio::contract("ibc")]] producer_schedule_ {

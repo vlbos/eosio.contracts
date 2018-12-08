@@ -32,10 +32,16 @@ namespace eosio {
          void chaininit( const std::vector<char>&      header,
                          const producer_schedule&      pending_schedule,
                          const producer_schedule&      active_schedule,
-                         const incremental_merkle&     blockroot_merkle );
+                         const incremental_merkle&     blockroot_merkle,
+                         const std::vector<uint8_t>&   confirm_count);
+
+         [[eosio::action]]
+         void addheader( const std::vector<char>& header);
+
 
          [[eosio::action]]
          void addheaders( const std::vector<char>& headers);
+
 
          // ---
 
@@ -103,6 +109,13 @@ namespace eosio {
 
          [[eosio::action]]
          void merkleadd( const digest_type& params);
+
+   private:
+      digest_type       bhs_sig_digest(block_header_state hs)const;
+      capi_public_key   get_produer_capi_public_key(uint64_t table_id, name producer);
+      void              assert_producer_signature(const digest_type& digest, const capi_signature& signature, const capi_public_key& pub_key);
+
+      void bhs_sign( block_header_state hs );
    };
 
 } /// namespace eosio

@@ -24,7 +24,8 @@ namespace eosio {
    void ibc::chaininit( const std::vector<char>&      header_data,
                         const producer_schedule&      active_schedule,
                         const producer_schedule&      pending_schedule,
-                        const incremental_merkle&     blockroot_merkle ) {
+                        const incremental_merkle&     blockroot_merkle,
+                        const std::vector<uint8_t>&   confirm_count) {
 
       const signed_block_header header = unpack<signed_block_header>(header_data);
 
@@ -49,26 +50,83 @@ namespace eosio {
       }
 
       _chaindb.emplace( _self, [&]( auto& r ) {
-         r.block_num = header.block_num();
-         r.block_id  = header.id();
-         r.header    = header;
-         r.blockroot_merkle    = blockroot_merkle;
-         r.active_schedule_id  = active_schedule_id;
-         r.pending_schedule_id = pending_schedule_id;
-//         r.confirm_count = ;
+         r.block_num             = header.block_num();
+         r.block_id              = header.id();
+         r.header                = header;
+         r.active_schedule_id    = active_schedule_id;
+         r.pending_schedule_id   = pending_schedule_id;
+         r.blockroot_merkle      = blockroot_merkle;
+         r.block_signing_key     = get_produer_capi_public_key( active_schedule_id, header.producer );
+         r.confirm_count         = confirm_count;
       });
 
-      print("--2-2-2--");
+      auto hs = _chaindb.begin();
+      auto dg = bhs_sig_digest(*hs);
+      printhex(dg.hash,32);
+      print("----888----");
+
+//
+//      char pubkey_data[38];
+//      eosio::datastream<char*> pubkey_ds( pubkey_data, sizeof(pubkey_data) );
+//      auto pubkey_begin = pubkey_ds.pos();
+//      pubkey_ds << get_produer_pubkey( active_schedule_id, header.producer );
+
+      assert_producer_signature(dg,header.producer_signature,get_produer_capi_public_key( active_schedule_id, header.producer ));
+//      assert_recover_key( reinterpret_cast<const capi_checksum256*>(dg.hash), reinterpret_cast<const char*>(header.producer_signature.data),66, pubkey_begin, (pubkey_ds.pos() - pubkey_begin));
+//      assert_recover_key( reinterpret_cast<const capi_checksum256*>(dg.hash), reinterpret_cast<const char*>(header.producer_signature.data),66, reinterpret_cast<const char*>(get_produer_capi_public_key( active_schedule_id, header.producer ).data), 34);
+
+//      void assert_recover_key( const capi_checksum256* digest, const char* sig, size_t siglen, const char* pub, size_t publen );
+//
+//      assert_recover_key( dg, header.producer_signature, get_produer_pubkey( active_schedule_id, header.producer ));
+      print("----889----");
+
+   }
+
+   void ibc::assert_producer_signature(const digest_type& digest, const capi_signature& signature, const capi_public_key& pub_key){
+      assert_recover_key( reinterpret_cast<const capi_checksum256*>(digest.hash), reinterpret_cast<const char*>(signature.data),66, reinterpret_cast<const char*>(pub_key.data), 34);
    }
 
 
 
+   capi_public_key ibc::get_produer_capi_public_key(uint64_t id, name producer){
+      auto it = _prodsches.find(id);
+      eosio_assert( it != _prodsches.end(), "producer schedule id not found" );
+      const producer_schedule& ps = it->schedule;
+      for( auto pk : ps.producers){
+         if( pk.producer_name == producer){
+            capi_public_key cpk;
+            eosio::datastream<char*> pubkey_ds( reinterpret_cast<char*>(cpk.data), sizeof(capi_signature) );
+            pubkey_ds << pk.block_signing_key;
+            return cpk;
+         }
+      }
+      eosio_assert(false, "producer not found" );
+      return capi_public_key(); //never excute, just used to suppress "no return" warning
+   }
+
+   void ibc::addheader( const std::vector<char>& header_data){
+      const signed_block_header header = unpack<signed_block_header>(header_data);
 
 
 
 
+   }
 
 
+   digest_type ibc::bhs_sig_digest( block_header_state hs ) const {
+      prodsches _prodsches( _self, _self.value );
+      auto it = _prodsches.find( hs.pending_schedule_id );
+      eosio_assert( it != _prodsches.end(), "internal error: block_header_state::sig_digest" );
+      auto header_bmroot = get_checksum256( std::make_pair( hs.header.digest(), hs.blockroot_merkle.get_root() ) );
+      return get_checksum256( std::make_pair( header_bmroot, it->schedule_hash) );
+   }
+
+
+   void ibc::bhs_sign( block_header_state hs ) {
+//      auto d = bhs_sig_digest( hs );
+//      header.producer_signature = signer( d );
+//      EOS_ASSERT( block_signing_key == fc::crypto::public_key( header.producer_signature, d ), wrong_signing_key, "block is signed with unexpected key" );
+   }
 
 
 
@@ -300,4 +358,4 @@ namespace eosio {
 
 } /// namespace eosio
 
-EOSIO_DISPATCH( eosio::ibc, (chaininit)(packedtrx)(initchain)(ibctrxinfo)(remoteibctrx)(addheaders)(ps)(header)(merkle)(merkleadd) )
+EOSIO_DISPATCH( eosio::ibc, (chaininit)(addheader)(packedtrx)(initchain)(ibctrxinfo)(remoteibctrx)(addheaders)(ps)(header)(merkle)(merkleadd) )
