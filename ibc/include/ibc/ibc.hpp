@@ -18,20 +18,24 @@ namespace eosio {
       private:
          prodsches      _prodsches;
          chaindb        _chaindb;
-         forkdb         _forkdb;
 
       public:
          ibc( name s, name code, datastream<const char*> ds );
          ~ibc();
 
+//         [[eosio::action]]
+//         void chaininit(const std::vector<char>& init_block_header,
+//                      const producer_schedule& init_active_schedule,
+//                      const incremental_merkle& init_blockroot_merkle );
+
          [[eosio::action]]
-         void forkdbinit(const std::vector<char>& init_block_header,
-                      const producer_schedule& init_active_schedule,
-                      const incremental_merkle& init_blockroot_merkle );
+         void chaininit( const std::vector<char>&      header,
+                         const producer_schedule&      pending_schedule,
+                         const producer_schedule&      active_schedule,
+                         const incremental_merkle&     blockroot_merkle );
 
          [[eosio::action]]
          void addheaders( const std::vector<char>& headers);
-
 
          // ---
 

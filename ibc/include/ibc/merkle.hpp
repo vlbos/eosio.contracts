@@ -73,7 +73,7 @@ namespace eosio {
       }
    } /// detail
 
-   struct [[eosio::table("incrmerkle"), eosio::contract("ibc")]] incremental_merkle {
+   struct incremental_merkle {
 
 //      incremental_merkle( const incremental_merkle& ) = default;
 //      incremental_merkle( incremental_merkle&& ) = default;
@@ -82,11 +82,11 @@ namespace eosio {
 
       const digest_type& append(const digest_type& digest) {
          bool partial = false;
-         auto max_depth = detail::calcluate_max_depth(node_count + 1);
+         auto max_depth = detail::calcluate_max_depth(_node_count + 1);
          auto current_depth = max_depth - 1;
-         auto index = node_count;
+         auto index = _node_count;
          auto top = digest;
-         auto active_iter = active_nodes.begin();
+         auto active_iter = _active_nodes.begin();
          auto updated_active_nodes = std::vector<digest_type>();
          updated_active_nodes.reserve(max_depth);
 
@@ -130,25 +130,27 @@ namespace eosio {
          updated_active_nodes.emplace_back(top);
 
          // store the new active_nodes
-         detail::move_nodes(active_nodes, std::move(updated_active_nodes));
+         detail::move_nodes(_active_nodes, std::move(updated_active_nodes));
 
          // update the node count
-         node_count++;
+         _node_count++;
 
-         return active_nodes.back();
+         return _active_nodes.back();
 
       }
 
       digest_type get_root() const {
-         if (node_count > 0) {
-            return active_nodes.back();
+         if (_node_count > 0) {
+            return _active_nodes.back();
          } else {
             return digest_type();
          }
       }
 
-      uint64_t                   node_count;
-      std::vector<digest_type>   active_nodes;
+      uint64_t                   _node_count;
+      std::vector<digest_type>   _active_nodes;
+
+      EOSLIB_SERIALIZE(incremental_merkle, (_node_count)(_active_nodes))
    };
 
 

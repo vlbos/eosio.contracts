@@ -12,8 +12,7 @@ namespace eosio {
 
    ibc::ibc( name s, name code, datastream<const char*> ds ) :contract(s,code,ds),
             _prodsches(_self, _self.value),
-            _chaindb(_self, _self.value),
-            _forkdb(_self, _self.value)
+            _chaindb(_self, _self.value)
    {
 
    }
@@ -22,34 +21,45 @@ namespace eosio {
 
    }
 
-   void ibc::forkdbinit( const std::vector<char>& init_block_header,
-                        const producer_schedule& init_active_schedule,
-                        const incremental_merkle& init_blockroot_merkle ){
+   void ibc::chaininit( const std::vector<char>&      header_data,
+                        const producer_schedule&      active_schedule,
+                        const producer_schedule&      pending_schedule,
+                        const incremental_merkle&     blockroot_merkle ) {
 
-      const signed_block_header header = unpack<signed_block_header>(init_block_header);
+      const signed_block_header header = unpack<signed_block_header>(header_data);
 
-      auto schedule_id = _prodsches.available_primary_key();
-      auto schedule_hash = get_checksum256(init_active_schedule);
+      while ( _prodsches.begin() != _prodsches.end() ){ _prodsches.erase(_prodsches.begin()); }
+      while ( _chaindb.begin() != _chaindb.end() ){ _chaindb.erase(_chaindb.begin()); }
 
+      auto active_schedule_id = _prodsches.available_primary_key();
       _prodsches.emplace( _self, [&]( auto& r ) {
-         r.id              = schedule_id;
-         r.schedule        = init_active_schedule;
-         r.schedule_hash   = schedule_hash;
+         r.id              = active_schedule_id;
+         r.schedule        = active_schedule;
+         r.schedule_hash   = get_checksum256(active_schedule);
       });
 
-      _forkdb.emplace( _self, [&]( auto& r ) {
+      auto pending_schedule_id = active_schedule_id;
+      if( pending_schedule.version > active_schedule.version && pending_schedule.producers.size() > 0 ){
+         pending_schedule_id = _prodsches.available_primary_key();
+         _prodsches.emplace( _self, [&]( auto& r ) {
+            r.id              = pending_schedule_id;
+            r.schedule        = pending_schedule;
+            r.schedule_hash   = get_checksum256(pending_schedule);
+         });
+      }
+
+      _chaindb.emplace( _self, [&]( auto& r ) {
          r.block_num = header.block_num();
          r.block_id  = header.id();
          r.header    = header;
-         r.blockroot_merkle = init_blockroot_merkle;
-//         r.pending_schedule_id = ;
-         r.active_schedule_id = schedule_id;
+         r.blockroot_merkle    = blockroot_merkle;
+         r.active_schedule_id  = active_schedule_id;
+         r.pending_schedule_id = pending_schedule_id;
 //         r.confirm_count = ;
       });
 
-
+      print("--2-2-2--");
    }
-
 
 
 
@@ -272,7 +282,7 @@ namespace eosio {
    }
 
    void ibc::merkle( const incremental_merkle& params){
-      print(params.node_count);
+      print(params._node_count);
       print("---------------++++-------+++++++++++++++++++./");
 //      _incremental_merkle_state = params;
    }
@@ -290,4 +300,4 @@ namespace eosio {
 
 } /// namespace eosio
 
-EOSIO_DISPATCH( eosio::ibc, (packedtrx)(forkdbinit)(initchain)(ibctrxinfo)(remoteibctrx)(addheaders)(ps)(header)(merkle)(merkleadd) )
+EOSIO_DISPATCH( eosio::ibc, (chaininit)(packedtrx)(initchain)(ibctrxinfo)(remoteibctrx)(addheaders)(ps)(header)(merkle)(merkleadd) )

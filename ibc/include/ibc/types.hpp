@@ -87,4 +87,11 @@ namespace eosio {
       }
    };
 
+
+   struct producer_schedule_type {
+      uint32_t                     version;
+      std::vector<producer_key>    producers;
+
+      EOSLIB_SERIALIZE( producer_schedule_type, (version)(producers))
+   };
 }

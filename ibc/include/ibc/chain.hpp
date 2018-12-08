@@ -45,21 +45,22 @@ namespace eosio {
    };
 
 
-   // ---- forkdb ----
-   struct [[eosio::table("forkdb"), eosio::contract("ibc")]] block_header_stat {
+      // ---- tables ----
+   struct [[eosio::table("chaindb"), eosio::contract("ibc")]] block_header_type {
       uint64_t                   block_num;
       block_id_type              block_id;
       signed_block_header        header;
-      incremental_merkle         blockroot_merkle;
-      uint32_t                   pending_schedule_id;
       uint32_t                   active_schedule_id;
+      uint32_t                   pending_schedule_id;
+      incremental_merkle         blockroot_merkle;
       std::vector<uint8_t>       confirm_count;
 
       uint64_t primary_key()const { return block_num; }
    };
-   typedef eosio::multi_index< "forkdb"_n, block_header_stat >  forkdb;
+   typedef eosio::multi_index< "chaindb"_n, block_header_type >  chaindb;
 
-   struct [[eosio::table("prodsches"), eosio::contract("ibc")]] producer_schedule_type {
+
+   struct [[eosio::table("prodsches"), eosio::contract("ibc")]] producer_schedule_ {
       uint64_t                      id;
       producer_schedule             schedule;
       digest_type                   schedule_hash;
@@ -72,19 +73,7 @@ namespace eosio {
          return public_key();
       }
    };
-   typedef eosio::multi_index< "prodsches"_n, producer_schedule_type >  prodsches;
-
-
-
-   struct [[eosio::table("chaindb"), eosio::contract("ibc")]] block_header_type {
-      uint64_t             block_num;
-      block_id_type        block_id;
-      block_header         header;
-      signature_type       producer_signature;
-
-      uint64_t primary_key()const { return block_num; }
-   };
-   typedef eosio::multi_index< "chaindb"_n, block_header_type >  chaindb;
+   typedef eosio::multi_index< "prodsches"_n, producer_schedule_ >  prodsches;
 
 
 } /// namespace eosio
