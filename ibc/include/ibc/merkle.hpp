@@ -74,12 +74,6 @@ namespace eosio {
    } /// detail
 
    struct incremental_merkle {
-
-//      incremental_merkle( const incremental_merkle& ) = default;
-//      incremental_merkle( incremental_merkle&& ) = default;
-//      incremental_merkle& operator= (const incremental_merkle& ) = default;
-//      incremental_merkle& operator= ( incremental_merkle&& ) = default;
-
       const digest_type& append(const digest_type& digest) {
          bool partial = false;
          auto max_depth = detail::calcluate_max_depth(_node_count + 1);
@@ -152,8 +146,5 @@ namespace eosio {
 
       EOSLIB_SERIALIZE(incremental_merkle, (_node_count)(_active_nodes))
    };
-
-
-
 } /// eosio
 

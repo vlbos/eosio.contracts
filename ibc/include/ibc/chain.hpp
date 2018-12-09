@@ -21,7 +21,7 @@ namespace eosio {
       uint32_t                                  timestamp;
       name                                      producer;
       uint16_t                                  confirmed;
-      capi_checksum256                          previous;
+      block_id_type                             previous;
       capi_checksum256                          transaction_mroot;
       capi_checksum256                          action_mroot;
       uint32_t                                  schedule_version;
@@ -29,7 +29,8 @@ namespace eosio {
       extensions_type                           header_extensions;
 
       capi_checksum256     digest()const;
-      capi_checksum256     id() const;
+      block_id_type        id() const;
+      block_id_type        id( uint32_t block_num, digest_type digest ) const;
       uint32_t             block_num() const { return num_from_id(previous) + 1; }
       static uint32_t      num_from_id(const capi_checksum256& id);
 

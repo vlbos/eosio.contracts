@@ -56,4 +56,19 @@ namespace eosio {
       return u.result;
    }
 
+   block_id_type block_header::id( uint32_t block_num, digest_type digest )const
+   {
+      union {
+         block_id_type result;
+         uint64_t hash64[4];
+      }u;
+
+      u.result = digest;
+      u.hash64[0] &= 0xffffffff00000000;
+      u.hash64[0] += endian_reverse_u32(block_num);
+      return u.result;
+   }
+
+
+
 } /// namespace eosio
