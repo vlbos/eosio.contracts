@@ -54,28 +54,29 @@ namespace eosio {
       uint32_t                   pending_schedule_id;
       incremental_merkle         blockroot_merkle;
       capi_public_key            block_signing_key;
-      std::vector<uint8_t>       confirm_count;
 
       uint64_t primary_key()const { return block_num; }
-      digest_type    sig_digest()const;
+      digest_type sig_digest()const;
    };
    typedef eosio::multi_index< "chaindb"_n, block_header_state >  chaindb;
 
 
-   struct [[eosio::table("prodsches"), eosio::contract("ibc")]] producer_schedule_ {
+   struct [[eosio::table("prodsches"), eosio::contract("ibc")]] producer_schedule_t {
       uint64_t                      id;
       producer_schedule             schedule;
       digest_type                   schedule_hash;
 
       uint64_t primary_key()const { return id; }
-      public_key get_producer_key( name p )const {
-         for( const auto& i : schedule.producers )
-            if( i.producer_name == p )
-               return i.block_signing_key;
-         return public_key();
-      }
    };
-   typedef eosio::multi_index< "prodsches"_n, producer_schedule_ >  prodsches;
+   typedef eosio::multi_index< "prodsches"_n, producer_schedule_t >  prodsches;
+
+
+   struct [[eosio::table("global"), eosio::contract("ibc")]] global_state {
+      uint32_t    lib_depth;
+
+      EOSLIB_SERIALIZE( global_state, (lib_depth) )
+   };
+   typedef eosio::singleton< "global"_n, global_state > global_singleton;
 
 
    struct [[eosio::table("chainglobal"), eosio::contract("ibc")]] chain_global_state {

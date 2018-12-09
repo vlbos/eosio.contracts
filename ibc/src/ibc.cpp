@@ -13,20 +13,26 @@ namespace eosio {
    ibc::ibc( name s, name code, datastream<const char*> ds ) :contract(s,code,ds),
             _prodsches(_self, _self.value),
             _chaindb(_self, _self.value),
-            _chain_global(_self, _self.value)
+            _chain_global(_self, _self.value),
+            _global(_self, _self.value)
    {
       _chain_gstate = _chain_global.exists() ? _chain_global.get() : chain_global_state{};
+      _gstate = _global.exists() ? _global.get() : global_state{};
    }
 
    ibc::~ibc() {
       _chain_global.set( _chain_gstate, _self );
+      _global.set( _gstate, _self );
+   }
+
+   void ibc::setglobal( global_state gs){
+      _gstate = gs;
    }
 
    void ibc::chaininit( const std::vector<char>&      header_data,
                         const producer_schedule&      active_schedule,
                         const producer_schedule&      pending_schedule,
-                        const incremental_merkle&     blockroot_merkle,
-                        const std::vector<uint8_t>&   confirm_count) {
+                        const incremental_merkle&     blockroot_merkle) {
 
       const signed_block_header header = unpack<signed_block_header>(header_data);
 
@@ -58,7 +64,6 @@ namespace eosio {
          r.pending_schedule_id   = pending_schedule_id;
          r.blockroot_merkle      = blockroot_merkle;
          r.block_signing_key     = get_produer_capi_public_key( active_schedule_id, header.producer );
-         r.confirm_count         = confirm_count;
       });
 
       auto dg = bhs_sig_digest( *(_chaindb.begin()) );
@@ -96,8 +101,13 @@ namespace eosio {
    }
 
 
-   void ibc::addheader( const std::vector<char>& header_data){
+   void ibc::addheader( const std::vector<char>& header_data) {
       const signed_block_header header = unpack<signed_block_header>(header_data);
+      pushheader(header);
+   }
+
+
+   void ibc::pushheader( const signed_block_header& header){
       auto header_block_num = header.block_num();
       auto header_block_id = header.id();
 
@@ -108,10 +118,8 @@ namespace eosio {
       // delete old branch
       if ( header_block_num < last_hbs_p->block_num + 1){
          auto result = _chaindb.get( header_block_num );
-         if ( std::memcmp(header_block_id.hash, result.block_id.hash, 32) == 0 ){
-            print_f("-- block repeated: % --", header_block_num);
-            return;
-         }
+         eosio_assert( std::memcmp(header_block_id.hash, result.block_id.hash, 32) != 0, ("block repeated: " + std::to_string(header_block_num)).c_str()  );
+
          while ( ( --_chaindb.end() )->block_num != header_block_num - 1 ){ _chaindb.erase( --_chaindb.end() ); }
          print_f("-- block deleted: % to % --", last_hbs_p->block_num, header_block_num);
       }
@@ -136,68 +144,76 @@ namespace eosio {
          bhs.block_signing_key = get_produer_capi_public_key( last_hbs.active_schedule_id, bhs.header.producer );
       }
 
-      _chaindb.emplace( _self, [&]( auto& r ) { r = bhs; });
-
       auto dg = bhs_sig_digest( bhs);
+
+      _chaindb.emplace( _self, [&]( auto& r ) { r = std::move(bhs); });
+
       assert_producer_signature( dg, bhs.header.producer_signature, bhs.block_signing_key);
 
       print_f("-- block add: % --", header_block_num);
    }
 
 
-
-
-
-
-      void ibc::addheader2( const std::vector<char>& header_data){
-
-      capi_checksum256 header_digest;
-      sha256( header_data.data(), header_data.size(), &header_digest );
-
-      const signed_block_header header = unpack<signed_block_header>(header_data);
-
-//      _chaindb.erase(--_chaindb.end());
-
-      auto last_hbs = *(--_chaindb.end());
-
-      auto header_block_num = header.block_num();
-      auto header_block_id = header.id();
-      eosio_assert(last_hbs.block_num + 1 == header_block_num, "can not linked block num" );
-
-
-      block_header_state bhs;
-      bhs.block_num = header_block_num;
-      bhs.block_id = std::move(header_block_id);
-      bhs.header = std::move(header);
-      bhs.active_schedule_id = last_hbs.active_schedule_id;
-      bhs.pending_schedule_id = last_hbs.pending_schedule_id;
-
-      last_hbs.blockroot_merkle.append( last_hbs.block_id );
-      bhs.blockroot_merkle = std::move(last_hbs.blockroot_merkle);
-
-      if ( bhs.header.producer == last_hbs.header.producer ){
-         bhs.block_signing_key = last_hbs.block_signing_key;
-      } else{
-         bhs.block_signing_key = get_produer_capi_public_key( last_hbs.active_schedule_id, header.producer );
-      }
-      //bhs.confirm_count = ;
-
-      _chaindb.emplace( _self, [&]( auto& r ) {
-         r=bhs;
-      });
-
-      auto dg = bhs_sig_digest( bhs);
-      assert_producer_signature( dg, bhs.header.producer_signature, bhs.block_signing_key);
-
-
-   }
-
    void ibc::addheaders( const std::vector<char>& block_headers){
       std::vector<signed_block_header> headers = unpack<std::vector<signed_block_header>>(block_headers);
-
-
+      print_f("total % blocks", headers.size());
+      for ( const auto & header : headers ){
+         print_f("pushing header: %", header.block_num());
+         pushheader(header);
+      }
    }
 
+
+
+//
+//      void ibc::addheader2( const std::vector<char>& header_data){
+//
+//      capi_checksum256 header_digest;
+//      sha256( header_data.data(), header_data.size(), &header_digest );
+//
+//      const signed_block_header header = unpack<signed_block_header>(header_data);
+//
+//      _chaindb.erase(--_chaindb.end());
+//
+//      auto last_hbs = *(--_chaindb.end());
+//
+//      auto header_block_num = header.block_num();
+//      auto header_block_id = header.id();
+//      eosio_assert(last_hbs.block_num + 1 == header_block_num, "can not linked block num" );
+//
+//
+//      block_header_state bhs;
+//      bhs.block_num = header_block_num;
+//      bhs.block_id = std::move(header_block_id);
+//      bhs.header = std::move(header);
+//      bhs.active_schedule_id = last_hbs.active_schedule_id;
+//      bhs.pending_schedule_id = last_hbs.pending_schedule_id;
+//
+//      last_hbs.blockroot_merkle.append( last_hbs.block_id );
+//      bhs.blockroot_merkle = std::move(last_hbs.blockroot_merkle);
+//
+//      if ( bhs.header.producer == last_hbs.header.producer ){
+//         bhs.block_signing_key = last_hbs.block_signing_key;
+//      } else{
+//         bhs.block_signing_key = get_produer_capi_public_key( last_hbs.active_schedule_id, header.producer );
+//      }
+//
+//      _chaindb.emplace( _self, [&]( auto& r ) {
+//         r=bhs;
+//      });
+//
+//      auto dg = bhs_sig_digest( bhs);
+//      assert_producer_signature( dg, bhs.header.producer_signature, bhs.block_signing_key);
+//
+//
+//   }
+//
+//   void ibc::addheaders( const std::vector<char>& block_headers){
+//      std::vector<signed_block_header> headers = unpack<std::vector<signed_block_header>>(block_headers);
+//
+//
+//   }
+//
 
 
 
@@ -421,4 +437,4 @@ namespace eosio {
 
 //  (ps)(header)(merkle)(merkleadd)
 
-EOSIO_DISPATCH( eosio::ibc, (chaininit)(addheader)(addheader2)(addheaders)(packedtrx)(ibctrxinfo)(remoteibctrx))
+EOSIO_DISPATCH( eosio::ibc, (chaininit)(addheader)(addheaders)(packedtrx)(ibctrxinfo)(remoteibctrx))

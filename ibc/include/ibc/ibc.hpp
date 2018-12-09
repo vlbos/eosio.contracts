@@ -20,22 +20,27 @@ namespace eosio {
          chaindb                 _chaindb;
          chain_global_singleton  _chain_global;
          chain_global_state      _chain_gstate;
+         global_singleton        _global;
+         global_state            _gstate;
       public:
          ibc( name s, name code, datastream<const char*> ds );
          ~ibc();
 
          [[eosio::action]]
+         void setglobal( global_state gs);
+
+
+         [[eosio::action]]
          void chaininit( const std::vector<char>&      header,
                          const producer_schedule&      pending_schedule,
                          const producer_schedule&      active_schedule,
-                         const incremental_merkle&     blockroot_merkle,
-                         const std::vector<uint8_t>&   confirm_count);
+                         const incremental_merkle&     blockroot_merkle);
 
          [[eosio::action]]
          void addheader( const std::vector<char>& header);
 
-      [[eosio::action]]
-      void addheader2( const std::vector<char>& header);
+//      [[eosio::action]]
+//      void addheader2( const std::vector<char>& header);
 
 
 
@@ -119,7 +124,8 @@ namespace eosio {
       digest_type       bhs_sig_digest( const block_header_state& hs )const;
       capi_public_key   get_produer_capi_public_key( uint64_t table_id, name producer );
       void              assert_producer_signature( const digest_type& digest, const capi_signature& signature, const capi_public_key& pub_key );
+      void              pushheader( const signed_block_header& header);
 
-   };
+      };
 
 } /// namespace eosio
