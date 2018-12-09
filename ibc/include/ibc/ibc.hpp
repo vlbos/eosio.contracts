@@ -16,17 +16,13 @@ namespace eosio {
 
    class [[eosio::contract("ibc")]] ibc : public contract {
       private:
-         prodsches      _prodsches;
-         chaindb        _chaindb;
-
+         prodsches               _prodsches;
+         chaindb                 _chaindb;
+         chain_global_singleton  _chain_global;
+         chain_global_state      _chain_gstate;
       public:
          ibc( name s, name code, datastream<const char*> ds );
          ~ibc();
-
-//         [[eosio::action]]
-//         void chaininit(const std::vector<char>& init_block_header,
-//                      const producer_schedule& init_active_schedule,
-//                      const incremental_merkle& init_blockroot_merkle );
 
          [[eosio::action]]
          void chaininit( const std::vector<char>&      header,
@@ -38,6 +34,8 @@ namespace eosio {
          [[eosio::action]]
          void addheader( const std::vector<char>& header);
 
+      [[eosio::action]]
+      void addheader2( const std::vector<char>& header);
 
 
 
@@ -45,7 +43,8 @@ namespace eosio {
 
 
 
-         [[eosio::action]]
+
+      [[eosio::action]]
          void addheaders( const std::vector<char>& headers);
 
 

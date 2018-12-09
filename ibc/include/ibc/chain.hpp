@@ -30,7 +30,6 @@ namespace eosio {
 
       capi_checksum256     digest()const;
       block_id_type        id() const;
-      block_id_type        id( uint32_t block_num, digest_type digest ) const;
       uint32_t             block_num() const { return num_from_id(previous) + 1; }
       static uint32_t      num_from_id(const capi_checksum256& id);
 
@@ -77,6 +76,16 @@ namespace eosio {
       }
    };
    typedef eosio::multi_index< "prodsches"_n, producer_schedule_ >  prodsches;
+
+
+   struct [[eosio::table("chainglobal"), eosio::contract("ibc")]] chain_global_state {
+      uint32_t    first;
+      uint32_t    last;
+      uint32_t    lib;
+
+      EOSLIB_SERIALIZE( chain_global_state, (first)(last)(lib) )
+   };
+   typedef eosio::singleton< "chainglobal"_n, chain_global_state > chain_global_singleton;
 
 
 } /// namespace eosio
