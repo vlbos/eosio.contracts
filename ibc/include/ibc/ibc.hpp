@@ -16,10 +16,9 @@ namespace eosio {
 
    class [[eosio::contract("ibc")]] ibc : public contract {
       private:
-         prodsches               _prodsches;
          chaindb                 _chaindb;
-         chain_global_singleton  _chain_global;
-         chain_global_state      _chain_gstate;
+         prodsches               _prodsches;
+         sections                _sections;
          global_singleton        _global;
          global_state            _gstate;
       public:

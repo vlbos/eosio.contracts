@@ -71,22 +71,23 @@ namespace eosio {
    typedef eosio::multi_index< "prodsches"_n, producer_schedule_t >  prodsches;
 
 
+   struct [[eosio::table("sections"), eosio::contract("ibc")]] section_type {
+      uint64_t    first;
+      uint64_t    last;
+      bool        valid;
+      uint32_t    active_schedule_id;
+
+      uint64_t primary_key()const { return first; }
+   };
+   typedef eosio::multi_index< "sections"_n, section_type >  sections;
+
+
    struct [[eosio::table("global"), eosio::contract("ibc")]] global_state {
       uint32_t    lib_depth;
 
       EOSLIB_SERIALIZE( global_state, (lib_depth) )
    };
    typedef eosio::singleton< "global"_n, global_state > global_singleton;
-
-
-   struct [[eosio::table("chainglobal"), eosio::contract("ibc")]] chain_global_state {
-      uint32_t    first;
-      uint32_t    last;
-      uint32_t    lib;
-
-      EOSLIB_SERIALIZE( chain_global_state, (first)(last)(lib) )
-   };
-   typedef eosio::singleton< "chainglobal"_n, chain_global_state > chain_global_singleton;
 
 
 } /// namespace eosio

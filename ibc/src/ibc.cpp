@@ -11,17 +11,15 @@
 namespace eosio {
 
    ibc::ibc( name s, name code, datastream<const char*> ds ) :contract(s,code,ds),
-            _prodsches(_self, _self.value),
             _chaindb(_self, _self.value),
-            _chain_global(_self, _self.value),
+            _prodsches(_self, _self.value),
+            _sections(_self, _self.value),
             _global(_self, _self.value)
    {
-      _chain_gstate = _chain_global.exists() ? _chain_global.get() : chain_global_state{};
       _gstate = _global.exists() ? _global.get() : global_state{};
    }
 
    ibc::~ibc() {
-      _chain_global.set( _chain_gstate, _self );
       _global.set( _gstate, _self );
    }
 
@@ -46,22 +44,15 @@ namespace eosio {
          r.schedule_hash   = get_checksum256(active_schedule);
       });
 
-      auto pending_schedule_id = active_schedule_id;
-      if( pending_schedule.version > active_schedule.version && pending_schedule.producers.size() > 0 ){
-         pending_schedule_id = _prodsches.available_primary_key();
-         _prodsches.emplace( _self, [&]( auto& r ) {
-            r.id              = pending_schedule_id;
-            r.schedule        = pending_schedule;
-            r.schedule_hash   = get_checksum256(pending_schedule);
-         });
-      }
+      eosio_assert(pending_schedule.version == active_schedule.version, "pending_schedule version is not equal to active_schedule" );
 
+      auto header_block_num = header.block_num();
       _chaindb.emplace( _self, [&]( auto& r ) {
-         r.block_num             = header.block_num();
+         r.block_num             = header_block_num;
          r.block_id              = header.id();
          r.header                = header;
          r.active_schedule_id    = active_schedule_id;
-         r.pending_schedule_id   = pending_schedule_id;
+         r.pending_schedule_id   = active_schedule_id;
          r.blockroot_merkle      = blockroot_merkle;
          r.block_signing_key     = get_produer_capi_public_key( active_schedule_id, header.producer );
       });
@@ -69,8 +60,12 @@ namespace eosio {
       auto dg = bhs_sig_digest( *(_chaindb.begin()) );
       assert_producer_signature( dg, header.producer_signature, get_produer_capi_public_key( active_schedule_id, header.producer ));
 
-      _chain_gstate.first = _chain_gstate.last = header.block_num();
-      _chain_gstate.lib = 0;
+      _sections.emplace( _self, [&]( auto& r ) {
+         r.first              = header_block_num;
+         r.last               = header_block_num;
+         r.valid              = true;
+         r.active_schedule_id = active_schedule_id;
+      });
    }
 
    void ibc::assert_producer_signature(const digest_type& digest, const capi_signature& signature, const capi_public_key& pub_key){
@@ -113,7 +108,6 @@ namespace eosio {
 
       auto last_hbs_p = --_chaindb.end();
       eosio_assert( header_block_num <= last_hbs_p->block_num + 1, "unlinkable block" );
-      eosio_assert( header_block_num > _chain_gstate.lib && header_block_num > _chain_gstate.first, "new block number must greater then lib number" );
 
       // delete old branch
       if ( header_block_num < last_hbs_p->block_num + 1){
