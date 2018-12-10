@@ -23,7 +23,7 @@ namespace eosio {
       push(s, args...);
    }
 
-   template<class ... Types> capi_checksum256 get_checksum256( Types ... args ){
+   template<class ... Types> capi_checksum256 get_checksum256(const Types & ... args ){
       datastream <size_t> ps;
       push(ps, args...);
       size_t size = ps.tellp();

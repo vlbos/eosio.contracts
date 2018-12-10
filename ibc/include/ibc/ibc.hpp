@@ -28,11 +28,14 @@ namespace eosio {
          [[eosio::action]]
          void setglobal( global_state gs);
 
-
          [[eosio::action]]
-         void chaininit( const std::vector<char>&      header,
+         void chaininit( const std::vector<char>&      header_data,
                          const producer_schedule&      pending_schedule,
                          const producer_schedule&      active_schedule,
+                         const incremental_merkle&     blockroot_merkle);
+
+         [[eosio::action]]
+         void newsection(const std::vector<char>&      header_data,
                          const incremental_merkle&     blockroot_merkle);
 
          [[eosio::action]]
@@ -121,7 +124,7 @@ namespace eosio {
 
    private:
       digest_type       bhs_sig_digest( const block_header_state& hs )const;
-      capi_public_key   get_produer_capi_public_key( uint64_t table_id, name producer );
+      capi_public_key   get_producer_capi_public_key( uint64_t table_id, name producer );
       void              assert_producer_signature( const digest_type& digest, const capi_signature& signature, const capi_public_key& pub_key );
       void              pushheader( const signed_block_header& header);
 
