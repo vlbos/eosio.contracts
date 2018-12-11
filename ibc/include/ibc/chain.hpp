@@ -74,13 +74,14 @@ namespace eosio {
    struct [[eosio::table("sections"), eosio::contract("ibc")]] section_type {
       uint64_t                first;
       uint64_t                last;
+      uint64_t                np_num;  // new producer start number if have
       bool                    valid = false;
    private:
       std::vector<name>       producers;
       std::vector<uint32_t>   block_nums;
    public:
       uint64_t primary_key()const { return first; }
-      void add( name producer, uint32_t num );
+      void add( name producer, uint32_t num, const producer_schedule& sch = producer_schedule() );
       void clear_from( uint32_t num );
    };
    typedef eosio::multi_index< "sections"_n, section_type >  sections;

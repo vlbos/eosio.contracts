@@ -126,15 +126,15 @@ namespace eosio {
       });
    }
 
-   // 添加连续的bp是不同的，验证一个bp最多连续12个块
-   // 设置sections 的 active_schedule_id
+
    void ibc::pushheader( const signed_block_header& header ){
       auto header_block_num = header.block_num();
       auto header_block_id = header.id();
 
-      const auto& last_section_ptr = --_sections.end();
-      auto last_section_first = last_section_ptr->first;
-      auto last_section_last = last_section_ptr->last;
+      const auto& last_section = *(--_sections.end());
+      auto last_section_first = last_section.first;
+      auto last_section_last = last_section.last;
+      
       eosio_assert( header_block_num > last_section_first, "new header number must larger then section root number" );
       eosio_assert( header_block_num <= last_section_last + 1, "unlinkable block" );
 
@@ -144,7 +144,7 @@ namespace eosio {
          eosio_assert( std::memcmp(header_block_id.hash, result.block_id.hash, 32) != 0, ("block repeated: " + std::to_string(header_block_num)).c_str()  );
 
          if ( header_block_num - last_section_first < _gstate.lib_depth ){
-            _sections.modify( *last_section_ptr, same_payer, [&]( auto& r ) {
+            _sections.modify( last_section, same_payer, [&]( auto& r ) {
                r.valid = false;
             });
          }
@@ -152,57 +152,68 @@ namespace eosio {
          while ( ( --_chaindb.end() )->block_num != header_block_num - 1 ){
             _chaindb.erase( --_chaindb.end() );
          }
-         print_f("-- block deleted: % to % --", last_section_last, header_block_num);
+         print_f("-- block deleted: from % back to % --", last_section_last, header_block_num);
       }
 
-      // verify new block
-      auto last_hbs = *(--_chaindb.end());   // not use pointer or const, for it needs change
-      eosio_assert(std::memcmp(last_hbs.block_id.hash, header.previous.hash, 32) == 0 , "unlinkable block" );
+      // verify linkable
+      auto last_bhs = *(--_chaindb.end());   // don't make pointer or const, for it needs change
+      eosio_assert(std::memcmp(last_bhs.block_id.hash, header.previous.hash, 32) == 0 , "unlinkable block" );
 
+      // verify new block
       block_header_state bhs;
       bhs.block_num           = header_block_num;
-      bhs.block_id            = std::move(header_block_id);
-      last_hbs.blockroot_merkle.append( last_hbs.block_id );
-      bhs.blockroot_merkle = std::move(last_hbs.blockroot_merkle);
+      bhs.block_id            = std::move( header_block_id );
+      
+      last_bhs.blockroot_merkle.append( last_bhs.block_id );
+      bhs.blockroot_merkle = std::move(last_bhs.blockroot_merkle);
 
-      if ( header.new_producers ){
-         // 验证version + 1
-         _sections.modify( *last_section_ptr, same_payer, [&]( auto& r ) {
+      if ( header.new_producers ){  // has new producers
+         auto last_active_schedule_version = _prodsches.get( last_bhs.active_schedule_id ).schedule.version;
+         eosio_assert( header.new_producers->version == last_active_schedule_version + 1, " header.new_producers version invalid" );
+
+         _sections.modify( last_section, same_payer, [&]( auto& r ) {
             r.valid = false;
+            r.np_num = header_block_num;
          });
-         auto pending_schedule_id = _prodsches.available_primary_key();
+
+         auto new_schedule_id = _prodsches.available_primary_key();
          _prodsches.emplace( _self, [&]( auto& r ) {
-            r.id              = pending_schedule_id;
+            r.id              = new_schedule_id;
             r.schedule        = *header.new_producers;
             r.schedule_hash   = get_checksum256( *header.new_producers );
          });
 
-         bhs.pending_schedule_id = pending_schedule_id;
-         bhs.active_schedule_id  = last_hbs.active_schedule_id;
+         bhs.pending_schedule_id = new_schedule_id;
+         bhs.active_schedule_id  = last_bhs.active_schedule_id;
       } else {
-         if ( last_hbs.active_schedule_id == last_hbs.pending_schedule_id ){  //
-            if ( header_block_num - last_section_first >= _gstate.lib_depth && !last_section_ptr->valid ){
-               _sections.modify( *last_section_ptr, same_payer, [&]( auto& r ) {
+         if ( last_bhs.active_schedule_id == last_bhs.pending_schedule_id ){  // normal circumstances
+
+            // check if valid
+            if ( header_block_num - last_section_first >= _gstate.lib_depth && !last_section.valid ){
+               _sections.modify( last_section, same_payer, [&]( auto& r ) {
                   r.valid = true;
                });
             }
-            bhs.active_schedule_id  = last_hbs.active_schedule_id;
-            bhs.pending_schedule_id = last_hbs.pending_schedule_id;
+            bhs.active_schedule_id  = last_bhs.active_schedule_id;
+            bhs.pending_schedule_id = last_bhs.pending_schedule_id;
          } else { // producers replacement interval
-            auto pending_schedule_version = _prodsches.get( last_hbs.pending_schedule_id ).schedule.version;
-            if ( header.schedule_version == pending_schedule_version ){
-               bhs.active_schedule_id  = last_hbs.pending_schedule_id;
-               bhs.pending_schedule_id = last_hbs.pending_schedule_id;
+            auto last_pending_schedule_version = _prodsches.get( last_bhs.pending_schedule_id ).schedule.version;
+            if ( header.schedule_version == last_pending_schedule_version ){
+               eosio_assert( header_block_num - last_section.np_num > 20 * 12, "header_block_num - last_section.np_num > 20 * 12 failed");
+               bhs.active_schedule_id  = last_bhs.pending_schedule_id;
+            } else {
+               bhs.active_schedule_id  = last_bhs.active_schedule_id;
             }
+            bhs.pending_schedule_id = last_bhs.pending_schedule_id;
          }
       }
 
       bhs.header              = std::move(header);
 
-      if ( bhs.header.producer == last_hbs.header.producer && bhs.active_schedule_id == last_hbs.active_schedule_id ){
-         bhs.block_signing_key = std::move(last_hbs.block_signing_key);
+      if ( bhs.header.producer == last_bhs.header.producer && bhs.active_schedule_id == last_bhs.active_schedule_id ){
+         bhs.block_signing_key = std::move(last_bhs.block_signing_key);
       } else{
-         bhs.block_signing_key = get_producer_capi_public_key( last_hbs.active_schedule_id, bhs.header.producer );
+         bhs.block_signing_key = get_producer_capi_public_key( last_bhs.active_schedule_id, bhs.header.producer );
       }
 
       auto dg = bhs_sig_digest( bhs );
@@ -212,11 +223,14 @@ namespace eosio {
          r = std::move(bhs);
       });
 
-      _sections.modify( *last_section_ptr, same_payer, [&]( auto& r ) {
-         r.last = header_block_num;
+      auto active_schedule = _prodsches.get( bhs.active_schedule_id ).schedule;
+
+      _sections.modify( last_section, same_payer, [&]( auto& s ) {
+         s.last = header_block_num;
+         s.add( header.producer, header_block_num, active_schedule );
       });
 
-      print_f("-- block add: % --", header_block_num);
+      print_f("-- block added: % --", header_block_num);
    }
 
 
@@ -392,27 +406,27 @@ EOSIO_DISPATCH( eosio::ibc, (chaininit)(newsection)(addheader)(addheaders)(packe
 //
 //      _chaindb.erase(--_chaindb.end());
 //
-//      auto last_hbs = *(--_chaindb.end());
+//      auto last_bhs = *(--_chaindb.end());
 //
 //      auto header_block_num = header.block_num();
 //      auto header_block_id = header.id();
-//      eosio_assert(last_hbs.block_num + 1 == header_block_num, "can not linked block num" );
+//      eosio_assert(last_bhs.block_num + 1 == header_block_num, "can not linked block num" );
 //
 //
 //      block_header_state bhs;
 //      bhs.block_num = header_block_num;
 //      bhs.block_id = std::move(header_block_id);
 //      bhs.header = std::move(header);
-//      bhs.active_schedule_id = last_hbs.active_schedule_id;
-//      bhs.pending_schedule_id = last_hbs.pending_schedule_id;
+//      bhs.active_schedule_id = last_bhs.active_schedule_id;
+//      bhs.pending_schedule_id = last_bhs.pending_schedule_id;
 //
-//      last_hbs.blockroot_merkle.append( last_hbs.block_id );
-//      bhs.blockroot_merkle = std::move(last_hbs.blockroot_merkle);
+//      last_bhs.blockroot_merkle.append( last_bhs.block_id );
+//      bhs.blockroot_merkle = std::move(last_bhs.blockroot_merkle);
 //
-//      if ( bhs.header.producer == last_hbs.header.producer ){
-//         bhs.block_signing_key = last_hbs.block_signing_key;
+//      if ( bhs.header.producer == last_bhs.header.producer ){
+//         bhs.block_signing_key = last_bhs.block_signing_key;
 //      } else{
-//         bhs.block_signing_key = get_producer_capi_public_key( last_hbs.active_schedule_id, header.producer );
+//         bhs.block_signing_key = get_producer_capi_public_key( last_bhs.active_schedule_id, header.producer );
 //      }
 //
 //      _chaindb.emplace( _self, [&]( auto& r ) {

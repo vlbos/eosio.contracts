@@ -56,7 +56,9 @@ namespace eosio {
       return u.result;
    }
 
-   void section_type::add( name pro, uint32_t num ){
+#define BIGNUM  2000
+#define MAXSPAN 4
+   void section_type::add( name pro, uint32_t num, const producer_schedule& sch ){
       if ( producers.empty() ){
          eosio_assert( block_nums.empty(), "producers not consistent with block_nums" );
          eosio_assert( pro.value != 0 && num != 0, "invalid parameters" );
@@ -65,12 +67,37 @@ namespace eosio {
          return;
       }
 
+      if( pro == producers.back() ){
+         return;
+      } else {
+         eosio_assert( sch.producers.size() > 15, "less then 15 producers" );
+         int index_last = BIGNUM;
+         int index_this = BIGNUM;
+         int i = 0;
+         for ( const auto& pk : sch.producers ){
+            if ( pk.producer_name == producers.back() ){
+               index_last = i;
+            }
+            if ( pk.producer_name == pro ){
+               index_this = i;
+            }
+            ++i;
+         }
+         if ( index_this > index_last ){
+            eosio_assert( index_this - index_last <= MAXSPAN, "exceed max span" );
+         } else {
+            eosio_assert( index_last - index_this >= sch.producers.size() - MAXSPAN, "exceed max span" );
+         }
+      }
+
       if( producers.size() > 21 ){
          producers.erase( producers.begin() );
          block_nums.erase( block_nums.begin() );
       }
 
       eosio_assert( num <= block_nums.back() + 12 , "one producer can not produce more then 12 blocks continue" );
+
+
 
       int size = producers.size();
       int i = size >= 15 ? 15 : size;
