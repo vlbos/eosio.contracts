@@ -53,7 +53,7 @@ namespace eosio {
       uint32_t                   active_schedule_id;
       uint32_t                   pending_schedule_id;
       incremental_merkle         blockroot_merkle;
-      capi_public_key            block_signing_key;   //redundant, used for make signature verification faster
+      capi_public_key            block_signing_key;   // redundant, used for make signature verification faster
 
       uint64_t primary_key()const { return block_num; }
       digest_type sig_digest()const;
@@ -72,12 +72,16 @@ namespace eosio {
 
 
    struct [[eosio::table("sections"), eosio::contract("ibc")]] section_type {
-      uint64_t    first;
-      uint64_t    last;
-      bool        valid = false;
-      uint32_t    active_schedule_id;  // 0 means null
-
+      uint64_t                first;
+      uint64_t                last;
+      bool                    valid = false;
+   private:
+      std::vector<name>       producers;
+      std::vector<uint32_t>   block_nums;
+   public:
       uint64_t primary_key()const { return first; }
+      void add( name producer, uint32_t num );
+      void clear_from( uint32_t num );
    };
    typedef eosio::multi_index< "sections"_n, section_type >  sections;
 

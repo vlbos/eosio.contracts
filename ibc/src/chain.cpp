@@ -55,4 +55,52 @@ namespace eosio {
       u.hash64[0] += endian_reverse_u32(block_num());
       return u.result;
    }
+
+   void section_type::add( name pro, uint32_t num ){
+      if ( producers.empty() ){
+         eosio_assert( block_nums.empty(), "producers not consistent with block_nums" );
+         eosio_assert( pro.value != 0 && num != 0, "invalid parameters" );
+         producers.push_back( pro );
+         block_nums.push_back( num );
+         return;
+      }
+
+      if( producers.size() > 21 ){
+         producers.erase( producers.begin() );
+         block_nums.erase( block_nums.begin() );
+      }
+
+      eosio_assert( num <= block_nums.back() + 12 , "one producer can not produce more then 12 blocks continue" );
+
+      int size = producers.size();
+      int i = size >= 15 ? 15 : size;
+      i -= 1;
+      while ( i >= 0 ){
+         eosio_assert( pro != producers[i] , "producer can not repeat within last 15 producers" );
+         --i;
+      }
+
+      producers.push_back( pro );
+      block_nums.push_back( num );
+   }
+
+   void section_type::clear_from( uint32_t num ){
+      int pos = 0;
+      eosio_assert( first < num && num <= last , "invalid number" );
+
+      while ( num <= block_nums.back() ){
+         producers.pop_back();
+         block_nums.pop_back();
+      }
+   }
+
+
+
+
+
+
+
+
+
+
 } /// namespace eosio

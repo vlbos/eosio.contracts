@@ -21,6 +21,7 @@ namespace eosio {
          sections                _sections;
          global_singleton        _global;
          global_state            _gstate;
+
       public:
          ibc( name s, name code, datastream<const char*> ds );
          ~ibc();
@@ -29,33 +30,22 @@ namespace eosio {
          void setglobal( global_state gs);
 
          [[eosio::action]]
-         void chaininit( const std::vector<char>&      header_data,
-                         const producer_schedule&      pending_schedule,
-                         const producer_schedule&      active_schedule,
-                         const incremental_merkle&     blockroot_merkle);
+         void chaininit( const std::vector<char>&     header,
+                         const producer_schedule&     active_schedule,
+                         const incremental_merkle&    blockroot_merkle );
 
          [[eosio::action]]
-         void newsection(const std::vector<char>&      header_data,
-                         const incremental_merkle&     blockroot_merkle);
+         void newsection( const std::vector<char>&    header,
+                          const incremental_merkle&   blockroot_merkle );
 
          [[eosio::action]]
-         void addheader( const std::vector<char>& header);
+         void addheader( const std::vector<char>& header );
 
-//      [[eosio::action]]
-//      void addheader2( const std::vector<char>& header);
+         [[eosio::action]]
+         void addheaders( const std::vector<char>& headers );
 
-
-
-
-
-
-
-
-      [[eosio::action]]
-         void addheaders( const std::vector<char>& headers);
-
-
-         // ---
+         [[eosio::action]]
+         void deltable( name talbe, uint32_t num = 0, bool reverse = false );
 
 
 
@@ -71,6 +61,7 @@ namespace eosio {
 
 
 
+      // ---
          [[eosio::action]]
          void initchain( const std::vector<char>& init_block_header,
                          const producer_schedule_type& init_producer_schedule,
@@ -127,7 +118,7 @@ namespace eosio {
       capi_public_key   get_producer_capi_public_key( uint64_t table_id, name producer );
       void              assert_producer_signature( const digest_type& digest, const capi_signature& signature, const capi_public_key& pub_key );
       void              pushheader( const signed_block_header& header);
-
+      uint32_t          get_active_schedule_id( const section_type& section );
       };
 
 } /// namespace eosio

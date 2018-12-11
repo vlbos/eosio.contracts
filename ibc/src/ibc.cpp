@@ -27,13 +27,15 @@ namespace eosio {
       _gstate = gs;
    }
 
+   /**
+    * Notes
+    * The chaininit block_header_state's pending_schedule version should equal to active_schedule version"
+    */
+
    void ibc::chaininit( const std::vector<char>&      header_data,
                         const producer_schedule&      active_schedule,
-                        const producer_schedule&      pending_schedule,
                         const incremental_merkle&     blockroot_merkle) {
-
       const signed_block_header header = unpack<signed_block_header>(header_data);
-      eosio_assert(pending_schedule.version == active_schedule.version, "pending_schedule version is not equal to active_schedule" );
 
       while ( _prodsches.begin() != _prodsches.end() ){ _prodsches.erase(_prodsches.begin()); }
       while ( _chaindb.begin() != _chaindb.end() ){ _chaindb.erase(_chaindb.begin()); }
@@ -46,59 +48,87 @@ namespace eosio {
       });
 
       auto block_signing_key = get_producer_capi_public_key( active_schedule_id, header.producer );
-
       auto header_block_num = header.block_num();
-      _chaindb.emplace( _self, [&]( auto& r ) {
-         r.block_num             = header_block_num;
-         r.block_id              = header.id();
-         r.header                = header;
-         r.active_schedule_id    = active_schedule_id;
-         r.pending_schedule_id   = active_schedule_id;
-         r.blockroot_merkle      = blockroot_merkle;
-         r.block_signing_key     = block_signing_key;
-      });
 
-      auto dg = bhs_sig_digest( _chaindb.get( header_block_num ) );
+      block_header_state bhs;
+      bhs.block_num             = header_block_num;
+      bhs.block_id              = header.id();
+      bhs.header                = header;
+      bhs.active_schedule_id    = active_schedule_id;
+      bhs.pending_schedule_id   = active_schedule_id;
+      bhs.blockroot_merkle      = blockroot_merkle;
+      bhs.block_signing_key     = block_signing_key;
+
+      auto dg = bhs_sig_digest( bhs );
       assert_producer_signature( dg, header.producer_signature, block_signing_key );
 
+      _chaindb.emplace( _self, [&]( auto& r ) {
+         r = std::move( bhs );
+      });
+
+      section_type sct;
+      sct.first              = header_block_num;
+      sct.last               = header_block_num;
+      sct.valid              = true;
+      sct.add( header.producer, header_block_num );
+
       _sections.emplace( _self, [&]( auto& r ) {
-         r.first              = header_block_num;
-         r.last               = header_block_num;
-         r.valid              = true;
-         r.active_schedule_id = active_schedule_id;
+         r = std::move( sct );
       });
    }
 
-   void ibc::assert_producer_signature(const digest_type& digest, const capi_signature& signature, const capi_public_key& pub_key){
-      assert_recover_key( reinterpret_cast<const capi_checksum256*>(digest.hash), reinterpret_cast<const char*>(signature.data),66, reinterpret_cast<const char*>(pub_key.data), 34);
-   }
+   /**
+    * Notes
+    * The newsection block_header_state should not have header.new_producers
+    * and schedule_version not changed with valid last_section
+    */
+   void ibc::newsection(const std::vector<char>&   header_data,
+                        const incremental_merkle&  blockroot_merkle){
+      const signed_block_header header = unpack<signed_block_header>(header_data);
+      eosio_assert( !header.new_producers, "section root header can not contain new_producers" );
 
-   capi_public_key ibc::get_producer_capi_public_key(uint64_t id, name producer){
-      auto it = _prodsches.find(id);
-      eosio_assert( it != _prodsches.end(), "producer schedule id not found" );
-      const producer_schedule& ps = it->schedule;
-      for( auto pk : ps.producers){
-         if( pk.producer_name == producer){
-            capi_public_key cpk;
-            eosio::datastream<char*> pubkey_ds( reinterpret_cast<char*>(cpk.data), sizeof(capi_signature) );
-            pubkey_ds << pk.block_signing_key;
-            return cpk;
-         }
-      }
-      eosio_assert(false, "producer not found" );
-      return capi_public_key(); //never excute, just used to suppress "no return" warning
-   }
+      auto header_block_num = header.block_num();
 
-   digest_type ibc::bhs_sig_digest( const block_header_state& hs ) const {
-      auto it = _prodsches.find( hs.pending_schedule_id );
-      eosio_assert( it != _prodsches.end(), "internal error: block_header_state::sig_digest" );
-      auto header_bmroot = get_checksum256( std::make_pair( hs.header.digest(), hs.blockroot_merkle.get_root() ));
-      return get_checksum256( std::make_pair( header_bmroot, it->schedule_hash ));
-   }
+      const auto& last_section = *(--_sections.end());
+      eosio_assert( last_section.valid, "last_section is not valid" );
+      eosio_assert( header_block_num > last_section.last + 1, "header_block_num should larger then last_section.last + 1" );
 
+      auto active_schedule_id = get_active_schedule_id( last_section );
+      auto version = _prodsches.get( active_schedule_id ).schedule.version;
+      eosio_assert( header.schedule_version == version, "schedule_version not equal to previous one" );
+
+      auto block_signing_key = get_producer_capi_public_key( active_schedule_id, header.producer );
+
+      block_header_state bhs;
+      bhs.block_num             = header_block_num;
+      bhs.block_id              = header.id();
+      bhs.header                = header;
+      bhs.active_schedule_id    = active_schedule_id;
+      bhs.pending_schedule_id   = active_schedule_id;
+      bhs.blockroot_merkle      = blockroot_merkle;
+      bhs.block_signing_key     = block_signing_key;
+
+      auto dg = bhs_sig_digest( bhs );
+      assert_producer_signature( dg, header.producer_signature, block_signing_key );
+
+      _chaindb.emplace( _self, [&]( auto& r ) {
+         r = std::move( bhs );
+      });
+
+      section_type sct;
+      sct.first              = header_block_num;
+      sct.last               = header_block_num;
+      sct.valid              = false;
+      sct.add( header.producer, header_block_num );
+
+      _sections.emplace( _self, [&]( auto& r ) {
+         r = std::move( sct );
+      });
+   }
 
    // 添加连续的bp是不同的，验证一个bp最多连续12个块
-   void ibc::pushheader( const signed_block_header& header){
+   // 设置sections 的 active_schedule_id
+   void ibc::pushheader( const signed_block_header& header ){
       auto header_block_num = header.block_num();
       auto header_block_id = header.id();
 
@@ -189,42 +219,6 @@ namespace eosio {
       print_f("-- block add: % --", header_block_num);
    }
 
-   void ibc::newsection(const std::vector<char>&   header_data,
-                        const incremental_merkle&  blockroot_merkle){
-      const signed_block_header header = unpack<signed_block_header>(header_data);
-      eosio_assert( !header.new_producers, "section root header can not contain new_producers" );
-
-      auto header_block_num = header.block_num();
-
-      auto last_section = *(--_sections.end());
-      eosio_assert( last_section.valid, "last_section is not valid" );
-      eosio_assert( last_section.last < header_block_num, "pending_schedule version is not equal to active_schedule" );
-
-      auto active_schedule_id = last_section.active_schedule_id;
-      auto block_signing_key = get_producer_capi_public_key( active_schedule_id, header.producer );
-      block_header_state bhs;
-      bhs.block_num             = header_block_num;
-      bhs.block_id              = header.id();
-      bhs.header                = header;
-      bhs.active_schedule_id    = active_schedule_id;
-      bhs.pending_schedule_id   = active_schedule_id;
-      bhs.blockroot_merkle      = blockroot_merkle;
-      bhs.block_signing_key     = block_signing_key;
-
-      auto dg = bhs_sig_digest( bhs );
-      assert_producer_signature( dg, header.producer_signature, block_signing_key );
-
-      _chaindb.emplace( _self, [&]( auto& r ) {
-         r = std::move( bhs );
-      });
-
-      _sections.emplace( _self, [&]( auto& r ) {
-         r.first              = header_block_num;
-         r.last               = header_block_num;
-         r.valid              = false;
-         r.active_schedule_id = active_schedule_id;
-      });
-   }
 
    void ibc::addheader( const std::vector<char>& header_data) {
       const signed_block_header header = unpack<signed_block_header>(header_data);
@@ -239,6 +233,73 @@ namespace eosio {
          pushheader(header);
       }
    }
+
+   void ibc::deltable( name talbe, uint32_t num, bool reverse ){
+      // todo
+   }
+
+
+
+
+
+
+
+
+   // private methods
+   void ibc::assert_producer_signature(const digest_type& digest,
+                                       const capi_signature& signature,
+                                       const capi_public_key& pub_key ){
+      assert_recover_key( reinterpret_cast<const capi_checksum256*>( digest.hash ),
+                          reinterpret_cast<const char*>( signature.data ), 66,
+                          reinterpret_cast<const char*>( pub_key.data ), 34 );
+   }
+
+   capi_public_key ibc::get_producer_capi_public_key( uint64_t id, name producer ){
+      auto it = _prodsches.find(id);
+      eosio_assert( it != _prodsches.end(), "producer schedule id not found" );
+      const producer_schedule& ps = it->schedule;
+      for( auto pk : ps.producers){
+         if( pk.producer_name == producer){
+            capi_public_key cpk;
+            eosio::datastream<char*> pubkey_ds( reinterpret_cast<char*>(cpk.data), sizeof(capi_signature) );
+            pubkey_ds << pk.block_signing_key;
+            return cpk;
+         }
+      }
+      eosio_assert(false, "producer not found" );
+      return capi_public_key(); //never excute, just used to suppress "no return" warning
+   }
+
+   digest_type ibc::bhs_sig_digest( const block_header_state& hs ) const {
+      auto it = _prodsches.find( hs.pending_schedule_id );
+      eosio_assert( it != _prodsches.end(), "internal error: block_header_state::sig_digest" );
+      auto header_bmroot = get_checksum256( std::make_pair( hs.header.digest(), hs.blockroot_merkle.get_root() ));
+      return get_checksum256( std::make_pair( header_bmroot, it->schedule_hash ));
+   }
+
+   uint32_t ibc::get_active_schedule_id( const section_type& section ){
+      return _chaindb.get( section.last ).active_schedule_id;
+   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -303,7 +364,7 @@ namespace eosio {
 
 //  (ps)(header)(merkle)(merkleadd)
 
-EOSIO_DISPATCH( eosio::ibc, (chaininit)(addheader)(addheaders)(packedtrx)(ibctrxinfo)(remoteibctrx))
+EOSIO_DISPATCH( eosio::ibc, (chaininit)(newsection)(addheader)(addheaders)(packedtrx)(ibctrxinfo)(remoteibctrx))
 
 
 
