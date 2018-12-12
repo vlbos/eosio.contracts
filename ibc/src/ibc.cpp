@@ -14,7 +14,9 @@ namespace eosio {
             _chaindb(_self, _self.value),
             _prodsches(_self, _self.value),
             _sections(_self, _self.value),
-            _global(_self, _self.value)
+            _global(_self, _self.value),
+            _ibctrxs(_self, _self.value),
+            _rmtlcltrxs(_self, _self.value)
    {
       _gstate = _global.exists() ? _global.get() : global_state{};
    }
@@ -259,7 +261,7 @@ namespace eosio {
 
 
 
-   // private methods
+   // -- private methods --
    void ibc::assert_producer_signature(const digest_type& digest,
                                        const capi_signature& signature,
                                        const capi_public_key& pub_key ){
@@ -323,26 +325,63 @@ namespace eosio {
 
 
 
+   // -- ibc transaction related --
 
+   void ibc::ibctrxinfo( const uint32_t          block_time_slot,
+                         const capi_checksum256& trx_id,
+                         const name              from,
+                         const name              to,
+                         const asset             quantity,
+                         const string&           memo ){
 
-   void ibc::ibctrxinfo(   uint64_t    transfer_seq,
-                           uint32_t    block_time_slot,
-                           capi_checksum256  trx_id,
-                           name        from,
-                           asset       quantity,
-                           string      memo ){
-      print(transfer_seq);print("===");
-      print(block_time_slot);print("===");
-      print(from.to_string());print("===");
-      printhex(trx_id.hash,32);print("===");
+      _ibctrxs.emplace( _self, [&]( auto& r ) {
+         r.id = _ibctrxs.available_primary_key();
+         r.block_time_slot = block_time_slot;
+         r.trx_id = trx_id;
+         r.from = from;
+         r.to = to;
+         r.quantity = quantity;
+         r.memo = memo;
+      });
+
    }
 
-   void ibc::remoteibctrx( const uint32_t block_num,
-                 const std::vector<char>& packed_trx,
-                 const std::vector<capi_checksum256>& merkle_path){
+   void ibc::srcibctrx( const uint64_t             seq,
+                        const uint32_t             src_block_num,
+                        const capi_checksum256&    src_trx_id,
+                        const std::vector<char>&   src_packed_trx,
+                        const std::vector<capi_checksum256>& src_merkle_path,
+                        const name                 relay ){
 
+      const transaction_receipt trx_rpt = unpack<transaction_receipt>( src_packed_trx );
+
+//      print(int(trx_rpt.status));print("--1--");
+//      print(trx_rpt.cpu_usage_us);print("--1--");
+//      print(trx_rpt.net_usage_words.value);print("--1--");
+
+
+      // eosio_assert( seq == _rmtlcltrxs.available_primary_key(), "error" );
+      // 只有注册的中继者可以执行此接口
+      // 验证trx id 正确
+      // 验证token是被注册的token
+      // 和路径一起验证交易及路径正确，并验证blockid 已经不可逆。
+      // 发行并填表
 
    }
+
+   void ibc::destibctrx( const uint32_t             dest_block_num,
+                         const std::vector<char>&   dest_packed_trx,
+                         const std::vector<capi_checksum256>& dest_merkle_path,
+                         const name                 relay ){
+      // 验证交易存在
+      // 验证编号递增 --
+      // 验证是对某个ibctrx的回应。
+      //
+   }
+
+
+
+
 
    void ibc::packedtrx(const std::vector<char>& trx_receipt_header_data, const std::vector<char>& packed_trx_data){
       const transaction_receipt_header trx_receipt_header = unpack<transaction_receipt_header>( trx_receipt_header_data );
@@ -378,7 +417,7 @@ namespace eosio {
 
 //  (ps)(header)(merkle)(merkleadd)
 
-EOSIO_DISPATCH( eosio::ibc, (chaininit)(newsection)(addheader)(addheaders)(packedtrx)(ibctrxinfo)(remoteibctrx))
+EOSIO_DISPATCH( eosio::ibc, (chaininit)(newsection)(addheader)(addheaders)(packedtrx)(ibctrxinfo)(srcibctrx)(destibctrx))
 
 
 

@@ -49,19 +49,18 @@ namespace eosio {
     * 2. transfer
     */
    struct ibctrxinfo{
-      uint64_t             transfer_seq;  //递增
       uint32_t             block_time_slot;
       capi_checksum256     trx_id;
       name                 from;
+      name                 to;
       asset                quantity;
       string               memo;
    };
 
 
    void token::transfer_notify( name from_token_contract, name from, name to, asset quantity, string memo ) {
-      capi_checksum256 trx_id = get_trx_id();
 
-      ibctrxinfo info{1, get_block_time_slot(), trx_id, "abcabcaaaa"_n, asset{100, symbol{"EOS", 4}}, "111111"};
+      ibctrxinfo info{ get_block_time_slot(), get_trx_id(), "abcabcaaaa"_n, to, asset{100, symbol{"EOS", 4}}, "111111"};
       action(permission_level{_self, "active"_n}, "eos222333ibc"_n, "ibctrxinfo"_n, info).send();
    }
 
